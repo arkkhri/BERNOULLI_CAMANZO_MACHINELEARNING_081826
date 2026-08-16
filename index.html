@@ -198,6 +198,8 @@ smoothedProbs[i] =
 
 const pct = (smoothedProbs[i] * 100).toFixed(1);
 
+            if (className.toLowerCase() === TARGET_CLASS.toLowerCase() && smoothedProbs[i] >= CONFIDENCE_THRESHOLD && !soundCooldown) {
+
             // trigger sound when this class crosses the confidence threshold
 if (className.toLowerCase() === TARGET_CLASS.toLowerCase() && smoothedProbs[i] >= CONFIDENCE_THRESHOLD && !soundCooldown) {
     alertSound.play().catch(err => console.error("Sound playback blocked or failed:", err));
