@@ -107,6 +107,9 @@
     // Change this to make the webcam preview bigger or smaller
     const SIZE = 400;
 
+    let smoothedProbs = [];
+const SMOOTHING_FACTOR = 0.15;
+
     async function init() {
         // cache-busting query param forces the browser to fetch the latest
         // retrained model instead of a cached copy
@@ -133,6 +136,8 @@
 
         labelContainer = document.getElementById("label-container");
         labelContainer.innerHTML = ""; // clear in case Start is clicked twice
+
+        smoothedProbs = new Array(maxPredictions).fill(0);
 
         for (let i = 0; i < maxPredictions; i++) {
             const row = document.createElement("div");
@@ -175,9 +180,13 @@
         const prediction = await model.predict(posenetOutput);
 
         for (let i = 0; i < maxPredictions; i++) {
-            const className = prediction[i].className;
-            const probability = prediction[i].probability;
-            const pct = (probability * 100).toFixed(1);
+          const className = prediction[i].className;
+const rawProbability = prediction[i].probability;
+
+smoothedProbs[i] =
+    SMOOTHING_FACTOR * rawProbability + (1 - SMOOTHING_FACTOR) * smoothedProbs[i];
+
+const pct = (smoothedProbs[i] * 100).toFixed(1);
 
             const row = labelContainer.childNodes[i];
             row.querySelector(".bar-name").textContent = className;
