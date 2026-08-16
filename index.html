@@ -27,7 +27,7 @@
         maxPredictions = model.getTotalClasses();
 
         const size = 200;
-        const flip = false; // Set to false to prevent mirroring
+        const flip = true; // Set to false to prevent mirroring
         webcam = new tmPose.Webcam(size, size, flip);
         await webcam.setup();
         await webcam.play();
