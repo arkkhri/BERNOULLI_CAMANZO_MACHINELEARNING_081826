@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teachable Machine Pose Model</title>
+<style>
+    body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f4f4f4;
+        padding-top: 40px;
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    #start-btn {
+        padding: 10px 24px;
+        font-size: 16px;
+        border: none;
+        border-radius: 6px;
+        background: #4a90e2;
+        color: #fff;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+
+    #start-btn:hover {
+        background: #357abd;
+    }
+
+    #canvas-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 25px;
+    }
+
+    canvas {
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    #label-container {
+        width: 100%;
+        max-width: 500px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .bar-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 15px;
+        font-weight: bold;
+    }
+
+    .bar-outer {
+        width: 100%;
+        height: 22px;
+        background: #e0e0e0;
+        border-radius: 11px;
+        overflow: hidden;
+    }
+
+    .bar-inner {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4a90e2, #50c9c3);
+        border-radius: 11px;
+        transition: width 0.15s ease-out;
+    }
+</style>
+</head>
+<body>
+
+<h1>Teachable Machine Pose Model</h1>
+<button id="start-btn" type="button" onclick="init()">Pindot Here!</button>
+
+<div id="canvas-container">
+    <canvas id="canvas"></canvas>
+</div>
+
+<div id="label-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/pose
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "https://teachablemachine.withgoogle.com/models/N4YmxUsEj/";
+    let model, webcam, ctx, labelContainer, maxPredictions;
+
+    // Change this to make the webcam preview bigger or smaller
+    const SIZE = 400;
+
+    // ---- Prediction smoothing ----
+    // Holds the running smoothed probability per class
+    let smoothedProbs = [];
+    // How much weight the NEW prediction gets each frame (0-1).
+    // Lower = smoother but slower to react. Higher = snappier but more jitter.
+    const SMOOTHING_FACTOR = 0.15;
+
+    // ---- Sound alert settings ----
+    // This must match your model's class name. Comparison below is
+    // case-insensitive, but spaces vs underscores still must match exactly.
+    const TARGET_CLASS = "raising hand";
+    const CONFIDENCE_THRESHOLD = 0.9;
+    let soundCooldown = false;
+    const COOLDOWN_MS = 2000; // prevents sound from spamming while pose is held
+
+    // Generates a short beep using the Web Audio API instead of loading an
+    // external mp3 file. This avoids 404 errors from a missing/misplaced
+    // sound file, since nothing needs to be uploaded to the repo.
+    let audioCtx = null;
+    function playBeep() {
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = "sine";
+            oscillator.frequency.value = 880; // A5 tone
+            gainNode.gain.value = 0.2;
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            // quick fade out to avoid a clicking sound at the end
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        } catch (err) {
+            console.error("Beep playback failed:", err);
+        }
+    }
+
+    async function init() {
+        // cache-busting query param forces the browser to fetch the latest
+        // retrained model instead of a cached copy
+        const cacheBuster = "?v=" + Date.now();
+        const modelURL = URL + "model.json" + cacheBuster;
+        const metadataURL = URL + "metadata.json" + cacheBuster;
+
+        // load the model and metadata
+        model = await tmPose.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmPose.Webcam(SIZE, SIZE, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append/get elements to the DOM
+        const canvas = document.getElementById("canvas");
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        ctx = canvas.getContext("2d");
+
+        labelContainer = document.getElementById("label-container");
+        labelContainer.innerHTML = ""; // clear in case Start is clicked twice
+
+        // reset smoothing state to zero for each class
+        smoothedProbs = new Array(maxPredictions).fill(0);
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const row = document.createElement("div");
+            row.className = "bar-row";
+
+            const labelRow = document.createElement("div");
+            labelRow.className = "bar-label";
+
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "bar-name";
+            const pctSpan = document.createElement("span");
+            pctSpan.className = "bar-pct";
+            pctSpan.textContent = "0%";
+
+            labelRow.appendChild(nameSpan);
+            labelRow.appendChild(pctSpan);
+
+            const barOuter = document.createElement("div");
+            barOuter.className = "bar-outer";
+            const barInner = document.createElement("div");
+            barInner.className = "bar-inner";
+            barOuter.appendChild(barInner);
+
+            row.appendChild(labelRow);
+            row.appendChild(barOuter);
+            labelContainer.appendChild(row);
+        }
+    }
+
+    async function loop(timestamp) {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        // Prediction #1: run input through posenet
+        const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+        // Prediction 2: run input through teachable machine classification model
+        const prediction = await model.predict(posenetOutput);
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const className = prediction[i].className;
+            const rawProbability = prediction[i].probability;
+
+            // exponential moving average: blend new value into the running smoothed value
+            smoothedProbs[i] =
+                SMOOTHING_FACTOR * rawProbability + (1 - SMOOTHING_FACTOR) * smoothedProbs[i];
+
+            const pct = (smoothedProbs[i] * 100).toFixed(1);
+
+            // trigger sound when this class crosses the confidence threshold
+            // (case-insensitive match against TARGET_CLASS)
+            if (
+                className.toLowerCase() === TARGET_CLASS.toLowerCase() &&
+                smoothedProbs[i] >= CONFIDENCE_THRESHOLD &&
+                !soundCooldown
+            ) {
+                playBeep();
+                soundCooldown = true;
+                setTimeout(() => { soundCooldown = false; }, COOLDOWN_MS);
+            }
+
+            const row = labelContainer.childNodes[i];
+            row.querySelector(".bar-name").textContent = className;
+            row.querySelector(".bar-pct").textContent = pct + "%";
+            row.querySelector(".bar-inner").style.width = pct + "%";
+        }
+
+        // finally draw the poses
+        drawPose(pose);
+    }
+
+    function drawPose(pose) {
+        if (webcam.canvas) {
+            ctx.drawImage(webcam.canvas, 0, 0, SIZE, SIZE);
+            // draw the keypoints and skeleton
+            if (pose) {
+                const minPartConfidence = 0.5;
+                tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+                tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
