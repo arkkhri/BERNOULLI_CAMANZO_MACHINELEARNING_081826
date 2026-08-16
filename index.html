@@ -1,19 +1,17 @@
 <div>Teachable Machine Pose Model</div>
 <button type="button" onclick="init()">Start</button>
-<div><canvas id="canvas"></canvas></div>
-<div id="label-container"></div>
 
-<!-- Add this style block -->
+<!-- Add CSS to style the webcam video -->
 <style>
-  #webcam-container video {
-    width: 480px;      /* or 100% for responsive */
-    height: 480px;     /* or auto to maintain aspect ratio */
+  video {
+    width: 640px;
+    height: 480px;
     max-width: 100%;
   }
-  #webcam-container {
-    margin: 10px 0;
-  }
 </style>
+
+<div><canvas id="canvas"></canvas></div>
+<div id="label-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
@@ -29,22 +27,22 @@
         maxPredictions = model.getTotalClasses();
 
         const size = 200;
-        const flip = true;
+        const flip = false; // Set to false to prevent mirroring
         webcam = new tmPose.Webcam(size, size, flip);
         await webcam.setup();
         await webcam.play();
         window.requestAnimationFrame(loop);
 
-        // Create a container for the webcam video and append it
-        const webcamContainer = document.createElement("div");
-        webcamContainer.id = "webcam-container";
-        webcamContainer.appendChild(webcam.webcam); // webcam.webcam is the <video> element
-        
-        // Insert the webcam video before the canvas
-        const canvas = document.getElementById("canvas");
-        canvas.parentNode.insertBefore(webcamContainer, canvas);
+        // Style the webcam video element directly
+        webcam.webcam.style.width = "640px";
+        webcam.webcam.style.height = "480px";
+        webcam.webcam.style.display = "block";
+        webcam.webcam.style.margin = "10px auto";
 
-        // Set canvas size
+        // Append the webcam video to the page (before the canvas)
+        const canvas = document.getElementById("canvas");
+        canvas.parentNode.insertBefore(webcam.webcam, canvas);
+
         canvas.width = size; 
         canvas.height = size;
         ctx = canvas.getContext("2d");
