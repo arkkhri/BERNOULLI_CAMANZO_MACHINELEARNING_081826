@@ -112,7 +112,7 @@ const SMOOTHING_FACTOR = 0.15;
 
     // Sound alert settings
 const TARGET_CLASS = "raising hand"; // <-- change this to match your exact class name
-const CONFIDENCE_THRESHOLD = 0.5;
+const CONFIDENCE_THRESHOLD = 0.9;
 const alertSound = new Audio("alert.mp3"); // <-- path to your sound file
 alertSound.addEventListener("error", () => {
     console.error("Sound file failed to load — check that alert.mp3 exists in the same folder as this HTML file.");
