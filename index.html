@@ -110,6 +110,13 @@
     let smoothedProbs = [];
 const SMOOTHING_FACTOR = 0.15;
 
+    // Sound alert settings
+const TARGET_CLASS = "Raising Hand"; // <-- change this to match your exact class name
+const CONFIDENCE_THRESHOLD = 0.9;
+const alertSound = new Audio("alert.mp3"); // <-- path to your sound file
+let soundCooldown = false;
+const COOLDOWN_MS = 2000; // prevents sound from spamming while pose is held
+
     async function init() {
         // cache-busting query param forces the browser to fetch the latest
         // retrained model instead of a cached copy
@@ -188,6 +195,12 @@ smoothedProbs[i] =
 
 const pct = (smoothedProbs[i] * 100).toFixed(1);
 
+            // trigger sound when this class crosses the confidence threshold
+if (className === TARGET_CLASS && smoothedProbs[i] >= CONFIDENCE_THRESHOLD && !soundCooldown) {
+    alertSound.play();
+    soundCooldown = true;
+    setTimeout(() => { soundCooldown = false; }, COOLDOWN_MS);
+}
             const row = labelContainer.childNodes[i];
             row.querySelector(".bar-name").textContent = className;
             row.querySelector(".bar-pct").textContent = pct + "%";
