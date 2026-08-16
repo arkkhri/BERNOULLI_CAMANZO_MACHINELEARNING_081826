@@ -1,15 +1,6 @@
 <div>Teachable Machine Pose Model</div>
 <button type="button" onclick="init()">Start</button>
 
-<!-- Add CSS to style the webcam video -->
-<style>
-  video {
-    width: 640px;
-    height: 480px;
-    max-width: 100%;
-  }
-</style>
-
 <div><canvas id="canvas"></canvas></div>
 <div id="label-container"></div>
 
@@ -27,7 +18,7 @@
         maxPredictions = model.getTotalClasses();
 
         const size = 200;
-        const flip = true; // Set to false to prevent mirroring
+        const flip = false; // Set to false to prevent mirroring
         webcam = new tmPose.Webcam(size, size, flip);
         await webcam.setup();
         await webcam.play();
