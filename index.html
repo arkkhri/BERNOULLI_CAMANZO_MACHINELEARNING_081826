@@ -87,11 +87,13 @@
 <body>
 
 <h1>Teachable Machine Pose Model</h1>
+    <p id="description">This machine learning tool is aimed to help nonverbal students to be acknowledge without having the discomfort of voicing out. Click the button below to start your webcam. 
 <button id="start-btn" type="button" onclick="init()">Pindot Here!</button>
 
 <div id="canvas-container">
     <canvas id="canvas"></canvas>
 </div>
+    <p id="camera-status"></p>
 
 <div id="label-container"></div>
 
@@ -166,6 +168,7 @@
         webcam = new tmPose.Webcam(SIZE, SIZE, flip); // width, height, flip
         await webcam.setup(); // request access to the webcam
         await webcam.play();
+        document.getElementByID("camera-status").textContent = "Camera is active";
         window.requestAnimationFrame(loop);
 
         // append/get elements to the DOM
